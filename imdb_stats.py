@@ -9,11 +9,15 @@ c = db.cursor()
 base_url = 'http://www.imdb.com'
 
 top_base = 'http://www.imdb.com/chart/%ss'
-top_urls = [ top_base % x for x in range(1910,2012,10)]
+top_urls = [ top_base % x for x in range(1910,2020,10)]
+
+print 'Processing URLS' + "\n" + "\n\t".join(top_urls)
 
 movie_base = 'http://www.imdb.com/title/%s/fullcredits#cast'
 
 actor_base = 'http://www.imdb.com/name/%s/'
+
+TOP_ACTORS = 5
 
 def processTopPage(url):
     data = requests.get(url)
@@ -94,10 +98,7 @@ def getOrSaveActor(name,url,role,birth_date,death_date):
     row = c.fetchone()
     if row is None:
         print 'Creating actor'
-        # if death_date is not None:
         c.execute("""INSERT INTO actors (name,url,role,birth_date,death_date) VALUES (%s,%s,%s,%s,%s)""", (name,url,role,birth_date,death_date))
-        # else:
-        #     c.execute("""INSERT INTO actors (name,url,role,birth_death) VALUES (%s,%s,%s)""", (name,url,role,birth_date,death_date))
         return {
             'id' : int(c.lastrowid),
             'name': name,
@@ -136,26 +137,29 @@ def getOrSaveMovieActor(actor_id,movie_id):
             'movie_id': row[2],
         }
 
-for top_url in top_urls[-1:]:
+for top_url in top_urls:
     print 'Processing List:', top_url
     movies = processTopPage(top_url)
     for movie in movies:
-        print 'Processing Movie:', movie['title'], movie
-        movie_url = movie['url']
-        movie_info = processMovie(base_url + movie_url + 'fullcredits')
-        year = movie_info['year']
-        print movie['title'],'in',year
-        movie_db = getOrSaveMovie(movie['title'], movie_url, year)
-        cast = movie_info['cast']
-        for actor in cast[:5]:
-            try:
-                actor_url = actor['url']
-                actor_info = processActor(base_url + actor_url)
-                actor_info['name'] = actor['name']
-                actor_info['url'] = actor_url
-                print actor_info
-                actor_db = getOrSaveActor(actor_info['name'],actor_info['url'],actor_info['role'],actor_info['birth'],actor_info['death'])
-                am_db = getOrSaveMovieActor(actor_db['id'],movie_db['id'])
-            except Exception, e:
-                print 'Failed getting actor: ',actor['name'],actor_url
-            time.sleep(1)
+        try:
+            print 'Processing Movie:', movie['title'], movie
+            movie_url = movie['url']
+            movie_info = processMovie(base_url + movie_url + 'fullcredits')
+            year = movie_info['year']
+            print movie['title'],'in',year
+            movie_db = getOrSaveMovie(movie['title'], movie_url, year)
+            cast = movie_info['cast']
+            for actor in cast[:TOP_ACTORS]:
+                try:
+                    actor_url = actor['url']
+                    actor_info = processActor(base_url + actor_url)
+                    actor_info['name'] = actor['name']
+                    actor_info['url'] = actor_url
+                    print actor_info
+                    actor_db = getOrSaveActor(actor_info['name'],actor_info['url'],actor_info['role'],actor_info['birth'],actor_info['death'])
+                    am_db = getOrSaveMovieActor(actor_db['id'],movie_db['id'])
+                except Exception, e:
+                    print 'Failed getting actor:',actor['name'],actor_url
+                time.sleep(1)
+        except Exception, e:
+            print 'Failed getting movie:',movie['title'],movie['url']
