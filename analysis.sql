@@ -14,6 +14,7 @@ where ci.person_id in (
   select person_id
   from cast_info
   group by person_id
-  having count(1) > 20
+  having count(1) > 200
 )
 group by n.gender, t.production_year;
+
